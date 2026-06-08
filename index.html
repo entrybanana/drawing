@@ -1,64 +1,299 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>그림판</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ms 그림판</title>
+
 <style>
 body{
-    text-align:center;
+    margin:0;
     font-family:sans-serif;
+    background:#f0f0f0;
 }
-canvas{
-    border:1px solid black;
-    cursor:crosshair;
+
+#toolbar{
+    background:white;
+    padding:10px;
+    box-shadow:0 2px 5px rgba(0,0,0,.2);
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+#canvasContainer{
+    position:relative;
+    width:1000px;
+    height:600px;
+    margin:20px auto;
+    background:white;
+    border:1px solid #aaa;
+}
+
+.layer{
+    position:absolute;
+    left:0;
+    top:0;
 }
 </style>
 </head>
 <body>
 
-<h1>🎨 그림판</h1>
+<div id="toolbar">
 
 <input type="color" id="color" value="#000000">
-<input type="range" id="size" min="1" max="50" value="5">
-<button onclick="clearCanvas()">지우기</button>
 
-<br><br>
+<input type="range"
+       id="size"
+       min="1"
+       max="50"
+       value="5">
 
-<canvas id="canvas" width="800" height="500"></canvas>
+<select id="layerSelect">
+    <option value="0">레이어 1</option>
+    <option value="1">레이어 2</option>
+    <option value="2">레이어 3</option>
+</select>
+
+<button onclick="undo()">실행취소</button>
+<button onclick="redo()">다시실행</button>
+<button onclick="clearLayer()">레이어 지우기</button>
+<button onclick="saveImage()">PNG 저장</button>
+
+</div>
+
+<div id="canvasContainer"></div>
 
 <script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+
+const WIDTH = 1000;
+const HEIGHT = 600;
+
+const container =
+document.getElementById("canvasContainer");
+
+const layers = [];
+const history = [];
+const redoHistory = [];
+
+let currentLayer = 0;
+
+for(let i=0;i<3;i++){
+
+    const c = document.createElement("canvas");
+
+    c.width = WIDTH;
+    c.height = HEIGHT;
+    c.className = "layer";
+
+    container.appendChild(c);
+
+    layers.push(c);
+}
 
 let drawing = false;
 
-canvas.addEventListener("mousedown", () => drawing = true);
-canvas.addEventListener("mouseup", () => drawing = false);
-canvas.addEventListener("mouseleave", () => drawing = false);
+function activeCanvas(){
+    return layers[currentLayer];
+}
 
-canvas.addEventListener("mousemove", draw);
+function saveState(){
 
-function draw(e){
-    if(!drawing) return;
+    history.push(
+        layers.map(layer =>
+            layer.toDataURL()
+        )
+    );
 
-    ctx.lineWidth =
+    if(history.length > 50)
+        history.shift();
+
+    redoHistory.length = 0;
+}
+
+saveState();
+
+document
+.getElementById("layerSelect")
+.addEventListener("change", e => {
+
+    currentLayer =
+    Number(e.target.value);
+
+});
+
+layers.forEach(canvas=>{
+
+    const ctx =
+    canvas.getContext("2d");
+
+    canvas.addEventListener("mousedown", e=>{
+
+        drawing = true;
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            e.offsetX,
+            e.offsetY
+        );
+
+        saveState();
+    });
+
+    canvas.addEventListener("mouseup", ()=>{
+
+        drawing = false;
+
+        ctx.beginPath();
+    });
+
+    canvas.addEventListener("mouseleave", ()=>{
+
+        drawing = false;
+
+        ctx.beginPath();
+    });
+
+    canvas.addEventListener("mousemove", e=>{
+
+        if(!drawing) return;
+
+        if(canvas !== activeCanvas())
+            return;
+
+        ctx.lineWidth =
         document.getElementById("size").value;
 
-    ctx.strokeStyle =
+        ctx.strokeStyle =
         document.getElementById("color").value;
 
-    ctx.lineCap = "round";
+        ctx.lineCap = "round";
 
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
+        ctx.lineTo(
+            e.offsetX,
+            e.offsetY
+        );
 
-    ctx.beginPath();
-    ctx.moveTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            e.offsetX,
+            e.offsetY
+        );
+    });
+
+});
+
+function restore(state){
+
+    state.forEach((img,index)=>{
+
+        const ctx =
+        layers[index].getContext("2d");
+
+        ctx.clearRect(
+            0,
+            0,
+            WIDTH,
+            HEIGHT
+        );
+
+        const image = new Image();
+
+        image.onload = ()=>{
+
+            ctx.drawImage(
+                image,
+                0,
+                0
+            );
+        };
+
+        image.src = img;
+    });
 }
 
-function clearCanvas(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+function undo(){
+
+    if(history.length <= 1)
+        return;
+
+    redoHistory.push(
+        history.pop()
+    );
+
+    restore(
+        history[
+            history.length-1
+        ]
+    );
 }
+
+function redo(){
+
+    if(redoHistory.length===0)
+        return;
+
+    const state =
+    redoHistory.pop();
+
+    history.push(state);
+
+    restore(state);
+}
+
+function clearLayer(){
+
+    saveState();
+
+    const ctx =
+    activeCanvas()
+    .getContext("2d");
+
+    ctx.clearRect(
+        0,
+        0,
+        WIDTH,
+        HEIGHT
+    );
+}
+
+function saveImage(){
+
+    const temp =
+    document.createElement("canvas");
+
+    temp.width = WIDTH;
+    temp.height = HEIGHT;
+
+    const ctx =
+    temp.getContext("2d");
+
+    layers.forEach(layer=>{
+
+        ctx.drawImage(
+            layer,
+            0,
+            0
+        );
+
+    });
+
+    const a =
+    document.createElement("a");
+
+    a.href =
+    temp.toDataURL("image/png");
+
+    a.download =
+    "drawing.png";
+
+    a.click();
+}
+
 </script>
 
 </body>
