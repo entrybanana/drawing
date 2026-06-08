@@ -1,300 +1,99 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ms 그림판</title>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0">
 
-<style>
-body{
-    margin:0;
-    font-family:sans-serif;
-    background:#f0f0f0;
-}
+    <title>Drawing Studio</title>
 
-#toolbar{
-    background:white;
-    padding:10px;
-    box-shadow:0 2px 5px rgba(0,0,0,.2);
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-}
-
-#canvasContainer{
-    position:relative;
-    width:1000px;
-    height:600px;
-    margin:20px auto;
-    background:white;
-    border:1px solid #aaa;
-}
-
-.layer{
-    position:absolute;
-    left:0;
-    top:0;
-}
-</style>
+    <link
+        rel="stylesheet"
+        href="style.css">
 </head>
+
 <body>
 
 <div id="toolbar">
 
-<input type="color" id="color" value="#000000">
+    <select id="tool">
+        <option value="brush">브러시</option>
+        <option value="eraser">지우개</option>
+        <option value="line">직선</option>
+        <option value="rect">사각형</option>
+        <option value="circle">원</option>
+        <option value="fill">채우기</option>
+    </select>
 
-<input type="range"
-       id="size"
-       min="1"
-       max="50"
-       value="5">
+    <select id="brushType">
+        <option value="pencil">연필</option>
+        <option value="airbrush">에어브러시</option>
+        <option value="marker">형광펜</option>
+    </select>
 
-<select id="layerSelect">
-    <option value="0">레이어 1</option>
-    <option value="1">레이어 2</option>
-    <option value="2">레이어 3</option>
-</select>
+    <input
+        type="color"
+        id="color"
+        value="#000000">
 
-<button onclick="undo()">실행취소</button>
-<button onclick="redo()">다시실행</button>
-<button onclick="clearLayer()">레이어 지우기</button>
-<button onclick="saveImage()">PNG 저장</button>
+    <input
+        type="range"
+        id="size"
+        min="1"
+        max="100"
+        value="5">
+
+    <select id="layerSelect">
+        <option value="0">레이어 1</option>
+        <option value="1">레이어 2</option>
+        <option value="2">레이어 3</option>
+    </select>
+
+    <button id="undoBtn">
+        ↩ 실행취소
+    </button>
+
+    <button id="redoBtn">
+        ↪ 다시실행
+    </button>
+
+    <button id="zoomIn">
+        🔍+
+    </button>
+
+    <button id="zoomOut">
+        🔍-
+    </button>
+
+    <button id="savePNG">
+        PNG 저장
+    </button>
+
+    <button id="saveProject">
+        프로젝트 저장
+    </button>
+
+    <input
+        type="file"
+        id="loadProject"
+        hidden>
+
+    <button id="loadBtn">
+        프로젝트 열기
+    </button>
+
+    <button id="darkMode">
+        🌙
+    </button>
 
 </div>
 
-<div id="canvasContainer"></div>
+<div id="canvasWrapper">
 
-<script>
+</div>
 
-const WIDTH = 1000;
-const HEIGHT = 600;
-
-const container =
-document.getElementById("canvasContainer");
-
-const layers = [];
-const history = [];
-const redoHistory = [];
-
-let currentLayer = 0;
-
-for(let i=0;i<3;i++){
-
-    const c = document.createElement("canvas");
-
-    c.width = WIDTH;
-    c.height = HEIGHT;
-    c.className = "layer";
-
-    container.appendChild(c);
-
-    layers.push(c);
-}
-
-let drawing = false;
-
-function activeCanvas(){
-    return layers[currentLayer];
-}
-
-function saveState(){
-
-    history.push(
-        layers.map(layer =>
-            layer.toDataURL()
-        )
-    );
-
-    if(history.length > 50)
-        history.shift();
-
-    redoHistory.length = 0;
-}
-
-saveState();
-
-document
-.getElementById("layerSelect")
-.addEventListener("change", e => {
-
-    currentLayer =
-    Number(e.target.value);
-
-});
-
-layers.forEach(canvas=>{
-
-    const ctx =
-    canvas.getContext("2d");
-
-    canvas.addEventListener("mousedown", e=>{
-
-        drawing = true;
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            e.offsetX,
-            e.offsetY
-        );
-
-        saveState();
-    });
-
-    canvas.addEventListener("mouseup", ()=>{
-
-        drawing = false;
-
-        ctx.beginPath();
-    });
-
-    canvas.addEventListener("mouseleave", ()=>{
-
-        drawing = false;
-
-        ctx.beginPath();
-    });
-
-    canvas.addEventListener("mousemove", e=>{
-
-        if(!drawing) return;
-
-        if(canvas !== activeCanvas())
-            return;
-
-        ctx.lineWidth =
-        document.getElementById("size").value;
-
-        ctx.strokeStyle =
-        document.getElementById("color").value;
-
-        ctx.lineCap = "round";
-
-        ctx.lineTo(
-            e.offsetX,
-            e.offsetY
-        );
-
-        ctx.stroke();
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            e.offsetX,
-            e.offsetY
-        );
-    });
-
-});
-
-function restore(state){
-
-    state.forEach((img,index)=>{
-
-        const ctx =
-        layers[index].getContext("2d");
-
-        ctx.clearRect(
-            0,
-            0,
-            WIDTH,
-            HEIGHT
-        );
-
-        const image = new Image();
-
-        image.onload = ()=>{
-
-            ctx.drawImage(
-                image,
-                0,
-                0
-            );
-        };
-
-        image.src = img;
-    });
-}
-
-function undo(){
-
-    if(history.length <= 1)
-        return;
-
-    redoHistory.push(
-        history.pop()
-    );
-
-    restore(
-        history[
-            history.length-1
-        ]
-    );
-}
-
-function redo(){
-
-    if(redoHistory.length===0)
-        return;
-
-    const state =
-    redoHistory.pop();
-
-    history.push(state);
-
-    restore(state);
-}
-
-function clearLayer(){
-
-    saveState();
-
-    const ctx =
-    activeCanvas()
-    .getContext("2d");
-
-    ctx.clearRect(
-        0,
-        0,
-        WIDTH,
-        HEIGHT
-    );
-}
-
-function saveImage(){
-
-    const temp =
-    document.createElement("canvas");
-
-    temp.width = WIDTH;
-    temp.height = HEIGHT;
-
-    const ctx =
-    temp.getContext("2d");
-
-    layers.forEach(layer=>{
-
-        ctx.drawImage(
-            layer,
-            0,
-            0
-        );
-
-    });
-
-    const a =
-    document.createElement("a");
-
-    a.href =
-    temp.toDataURL("image/png");
-
-    a.download =
-    "drawing.png";
-
-    a.click();
-}
-
-</script>
+<script src="script.js"></script>
 
 </body>
 </html>
