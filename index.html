@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>그림판</title>
+<style>
+body{
+    text-align:center;
+    font-family:sans-serif;
+}
+canvas{
+    border:1px solid black;
+    cursor:crosshair;
+}
+</style>
+</head>
+<body>
+
+<h1>🎨 그림판</h1>
+
+<input type="color" id="color" value="#000000">
+<input type="range" id="size" min="1" max="50" value="5">
+<button onclick="clearCanvas()">지우기</button>
+
+<br><br>
+
+<canvas id="canvas" width="800" height="500"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let drawing = false;
+
+canvas.addEventListener("mousedown", () => drawing = true);
+canvas.addEventListener("mouseup", () => drawing = false);
+canvas.addEventListener("mouseleave", () => drawing = false);
+
+canvas.addEventListener("mousemove", draw);
+
+function draw(e){
+    if(!drawing) return;
+
+    ctx.lineWidth =
+        document.getElementById("size").value;
+
+    ctx.strokeStyle =
+        document.getElementById("color").value;
+
+    ctx.lineCap = "round";
+
+    ctx.lineTo(e.offsetX, e.offsetY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(e.offsetX, e.offsetY);
+}
+
+function clearCanvas(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+</script>
+
+</body>
+</html>
